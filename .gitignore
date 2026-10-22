@@ -1,0 +1,11 @@
+# Local datasets and experiment outputs
+data/
+runs/
+weights/
+
+# Python environment
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.DS_Store
