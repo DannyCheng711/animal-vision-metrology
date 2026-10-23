@@ -75,7 +75,7 @@ if __name__ == "__main__":
     )
 
     selected_images = select_dog_images(dataset, min_dogs=2)
-    output_path = project_root / "runs" / "selection" / "two_or_more_dogs.csv"
+    output_path = project_root / "outputs" / "selection" / "two_or_more_dogs.csv"
     export_selection_csv(selected_images, output_path)
 
     print("Images with at least two dogs:", len(selected_images))

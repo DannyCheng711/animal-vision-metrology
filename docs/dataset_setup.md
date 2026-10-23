@@ -29,14 +29,42 @@ unzip -o data/coco/annotations_trainval2017.zip \
 ```
 
 
+## Project Structure
+
+```text
+computer-vision/
+├── dataset/
+│   ├── dataloader.py
+│   └── prepro.py
+├── model/
+│   ├── __init__.py
+│   ├── animal_segmentation.py
+│   ├── eye_localization.py
+│   └── eye_segmentation.py
+├── measurement.py
+├── run/
+│   ├── inference.py
+│   └── evaluation.py
+├── docs/
+├── data/
+├── outputs/
+└── weights/
+```
+
 ## Module Responsibilities
 
-- `dataset/dataloader.py`: dataset indexing and reading individual images with original annotations. Add PyTorch batching only when needed.
-- `dataset/prepro.py`: animal filtering, selection CSV, and later crop preparation with coordinate metadata.
-- `model/`: pretrained model loading and inference wrappers, created when integrating the pose model.
-- `run/inference.py`: inference orchestration, created after dataset selection.
-- `run/evaluation.py`: evaluation orchestration, created when reference annotations are available.
-- `run/trainer.py`: optional future fine-tuning; not implemented during feasibility testing.
-- `runs/`: generated results, excluded from Git along with `data/` and local model weights.
+- `dataset/dataloader.py`: read images and original COCO annotations without changing coordinates.
+- `dataset/prepro.py`: filter animals, export selection CSV, and prepare crops with coordinate transformation metadata.
+- `model/animal_segmentation.py`: animal instance segmentation model wrapper.
+- `model/eye_localization.py`: eye localization model wrapper; return eye coordinates and confidence scores in original-image coordinates.
+- `model/eye_segmentation.py`: eye segmentation model wrapper; return masks and quality scores aligned with the original image.
+- `measurement.py`: calculate pixel distances from coordinates or masks; no model loading or dataset reading.
+- `run/inference.py`: orchestrate dataset reading, model inference, measurement, and result export.
+- `run/evaluation.py`: compare predictions with reference annotations and aggregate error metrics when reference annotations are available.
+- `weights/`: local model configurations and checkpoints, excluded from Git.
+- `data/`: local datasets, excluded from Git.
+- `outputs/`: generated model predictions, masks, measurements, evaluation reports, and dataset selection files; excluded from Git.
 
-COCO bounding boxes use `[x, y, width, height]` in original image pixels. Preserve instance annotation IDs and original image dimensions throughout preprocessing.
+`measurement.py`, `run/inference.py`, and `run/evaluation.py` are initially empty placeholders. Existing model and dataset implementations will be integrated into these responsibilities separately.
+
+COCO bounding boxes use `[x, y, width, height]` in original image pixels. Preserve instance annotation IDs and original image dimensions throughout preprocessing. Convert crop or resized coordinates back to original-image coordinates before measurement. Distances are measured in pixels unless a separate scale calibration is available.

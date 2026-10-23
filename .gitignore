@@ -1,6 +1,6 @@
 # Local datasets and experiment outputs
 data/
-runs/
+outputs/
 weights/
 
 # Python environment
