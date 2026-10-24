@@ -136,7 +136,7 @@ def evaluate(localizer, dataset, dogs_by_image, detected_images, architecture, s
     # ====================================================
     # Step 4: Export per-eye results and the evaluation summary
     # ====================================================
-    output = Path(".") / "outputs/localization" / architecture / source
+    output = Path(".") / "outputs/eye_localization" / architecture / source
     output.mkdir(parents=True, exist_ok=True)
     with (output / "eye_errors.csv").open("w", newline="", encoding="utf-8") as file:
         writer = csv.DictWriter(file, fieldnames=list(rows[0]))
@@ -210,7 +210,7 @@ if __name__ == "__main__":
     # ====================================================
     # Step 4: Export model comparisons and coverage drop
     # ====================================================
-    output_path = project_root / "outputs/localization/comparison.csv"
+    output_path = project_root / "outputs/eye_localization/comparison.csv"
     with output_path.open("w", newline="", encoding="utf-8") as file:
         writer = csv.DictWriter(file, fieldnames=list(comparison[0]))
         writer.writeheader()

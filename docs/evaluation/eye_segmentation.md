@@ -13,7 +13,6 @@
 
 幾何橢圓與 SAM Box Prompt 使用相同半徑比例 0.15，水平半徑限制為 2～20 px，垂直半徑為水平的 0.75 倍且至少 1 px。
 
-
 YOLO detection confidence 為 0.5，預測 bbox 與 GT 以 bbox IoU ≥ 0.5 進行 Greedy 一對一配對。
 
 評估公式如下：
@@ -22,9 +21,7 @@ YOLO detection confidence 為 0.5，預測 bbox 與 GT 以 bbox IoU ≥ 0.5 進�
 - Mean IoU = 全部可評估眼睛的 IoU 總和 / 可評估眼睛數
 - Coverage = 成功產生有效 mask 的眼睛數 / 可評估眼睛數
 
-
 漏偵測、無效提示或空 mask 的 IoU 計 0。
-
 
 ## 評估結果
 

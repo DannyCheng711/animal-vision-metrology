@@ -1,122 +1,125 @@
 # 動物影像分割、眼睛影像分割與距離量測
 
-使用 COCO val2017 中至少有兩隻非 crowd 狗的 29 張圖片，依序比較動物分割、眼睛 mask 與 keypoint 距離。眼睛參考標註來自 CVAT；僅納入符合有效標註條件的眼睛。
+本專案是關於將圖像分割 (Image Segmentation) 模型的輸出應用於實際測量學 (Metrology) 任務的題目。
 
+## 1. 專案介紹
 
-## 1. 動物影像分割
+本專案完成下列工作：
 
-比較 COCO 預訓練的 YOLOv8x-seg、YOLO11x-seg 與 YOLO26x-seg，選擇後續流程的上游模型。目前不設部署資源限制，以分割品質為優先。
+### 1. 資料集選取：
 
-> 選用原因：YOLO-seg 可同時輸出動物 bbox 與 instance mask，並提供 COCO 預訓練權重，方便銜接眼睛定位。YOLO12 尚無官方預訓練 segmentation 權重，因此不納入比較。
+- 使用 COCO val2017，篩選出至少包含 2 隻非 crowd 狗（Dog）的圖片，共取得 29 張圖片。
+- 由於 COCO 不提供狗眼睛的 Ground Truth，另使用 CVAT 人工標註眼睛位置與輪廓。
 
-### 評估設定
+### 2. 動物輪廓 / 眼睛輪廓圖像分割：
 
-三個模型使用相同的 29 張圖片，以原始 COCO instance mask 為參考，透過 `pycocotools.COCOeval` 進行 segmentation 評估，僅評估 dog 類別。
+- 使用 Yolo-seg models 進行動物輪廓圖像分割。
+- 使用 HRNet 預測的眼睛 Keypoints，並透過 幾何橢圓 與 SAM 進行眼睛圖像輪廓分割。
 
-| 適用模型 | 輸入尺寸設定 | 評估 Confidence | IoU 門檻 | 裝置 |
-|---|---|---|---|---|
-| YOLO-seg x | imgsz=640（等比例縮放與 padding） | 0.001 | 0.50–0.95（間隔 0.05） | NVIDIA H100 80GB HBM3 |
+### 3. 同一隻動物雙眼距離量測：
 
-### 評估結果
+- 使用 HRNet 預測的左右眼 Keypoints 座標，計算同一隻狗雙眼之間的 Euclidean Distance，單位為 pixel。
 
-| 模型 | Mask AP@[.50:.95] ↑ | AP50 ↑ | AP75 ↑ |
-|---|---:|---:|---:|
-| YOLOv8x-seg | 0.551 | 0.725 | 0.670 |
-| YOLO11x-seg | 0.556 | 0.718 | 0.671 |
-| **YOLO26x-seg** | **0.595** | **0.791** | **0.706** |
+### 4. 不同動物右眼距離量測：
 
-- Mask AP@[.50:.95]：在 0.50～0.95、間隔 0.05 的 IoU 門檻下，計算 AP 後取平均。
-- AP50／AP75：分別為 IoU 門檻 0.50／0.75 下的 AP，依 confidence 排序累積 Precision–Recall 曲線。
+- 使用 HRNet 預測的右眼 Keypoints 座標，計算不同隻狗右眼之間的 Euclidean Distance，單位為 pixel。
 
-YOLO26x-seg 在本次比較的三項 AP 指標均取得最高分，因此選為後續眼睛定位、眼睛影像分割與距離量測的上游模型。
+### 5. AI 模型選擇與評估：
 
-### 執行方式
+- 動物影像分割：比較不同版本的 YOLO-seg 模型在本專案 COCO val2017 子集（至少 2 隻狗）上的表現，評估指標為 Mask AP。
+- 眼睛 Keypoints 定位：比較 HRNet-w48（Heatmap）與 RTMPose-m（SimCC）在 CVAT 人工標註資料上的表現，評估指標為 Mean Keypoint Error 與 Coverage。
+- 眼睛影像分割：比較 幾何橢圓 與 SAM 的眼睛分割結果，評估指標為 Mean IoU 與 Coverage。
 
-從專案根目錄執行：
+### 6. 量測方法與驗證：
 
-```bash
-uv run python -m model.animal_segmentation
+- 利用 Euclidean Distance 公式。並以 CVAT 人工標註作為 Ground Truth，評估模型預測距離與人工標註距離之間的誤差。
+
+模型 Inference 結果：
+
+- 請參考 [Inference 說明](docs/inference.md)。
+
+AI 模型選擇與評估報告：
+
+- 動物影像分割：[模型比較與 COCOeval 結果](docs/evaluation/animal_segmentation.md)
+- 眼睛定位：[GT／YOLO bbox 定位誤差與 Coverage](docs/evaluation/eye_localization.md)
+- 眼睛影像分割：[Geometric／SAM 的 IoU 與 Coverage](docs/evaluation/eye_segmentation.md)
+- 眼睛距離量測：[同狗雙眼與跨狗右眼的 MAE／Relative Error](docs/evaluation/eye_distance.md)
+
+## 2. 系統流程圖
+
+目前由 `run/inference.py` 串接單張 COCO 圖片的推論、預測座標檢查、距離量測與結果輸出。
+
+```text
+COCO val2017 圖片（原圖）
+│
+▼
+YOLO26x-seg：狗的圖像分割
+├── 輸出 動物輪廓
+└── 輸出 動物 Bounding Box
+    │
+    ▼
+    HRNet-w48（pretrained on AP-10K）：左右眼定位
+    │
+    └── 左右眼 Keypoints 與 Confidence（原圖座標）
+        │
+        ├── SAM ViT-B：眼睛影像分割
+        │   └── 輸出 左右眼 輪廓
+        │
+        └── 距離量測
+            ├── 檢查預測眼睛是否有效 (座標位於原圖內)
+            ├── 同一隻狗：左眼 ↔ 右眼
+            └── 不同隻狗：右眼 ↔ 右眼（兩兩配對）
+                └── Euclidean Distance（pixel）→ 距離圖與 JSON 輸出
 ```
 
-程式依序評估三個模型。各模型輸出位於 `outputs/animal_segmentation/{model}/coco_eval/`，包含 COCO 格式預測 `coco_predictions.json`、評估摘要 `summary.json`、二值 mask 與疊圖；比較總表為 `outputs/animal_segmentation/comparison_coco.csv`。
+## 3. 工作資料夾
 
-## 2. 眼睛 Mask：Geometric 與 SAM 增強比較
+```text
+computer-vision/
+├── README.md                          # 專案介紹與文件入口
+├── dataset/                           # 資料集讀取、篩選與標註解析
+│   ├── dataloader.py                  # 讀取 COCO 圖片與 instance annotations
+│   ├── prepro.py                      # 資料篩選與選取清單匯出
+│   └── eye_annotations.py             # 解析 CVAT 眼睛輪廓、點位與可見性標註
+├── model/                             # 模型下載、載入與推論封裝
+│   ├── __init__.py
+│   ├── animal_segmentation.py         # YOLO-seg 動物實例分割
+│   ├── eye_localization.py            # HRNet／RTMPose 眼睛 keypoint 定位
+│   └── eye_segmentation.py            # Geometric／SAM 眼睛分割
+├── measurement.py                     # Euclidean Distance 與 polygon mask 工具
+├── run/                               # 推論與各任務評估入口
+│   ├── inference.py                   # 單張圖片推論、視覺化與距離輸出
+│   ├── animal_segmentation_evaluation.py
+│   ├── eye_localization_evaluation.py
+│   ├── eye_segmentation_evaluation.py
+│   └── eye_distance_evaluation.py
+├── docs/                              # 環境、資料集、模型與操作說明
+│   ├── environment_setup.md
+│   ├── dataset_setup.md
+│   ├── model.md
+│   ├── inference.md
+│   └── evaluation/                    # 四項任務的評估方法與結果
+├── data/                              # 本機資料集與人工標註
+│   ├── coco/                          # COCO val2017 圖片與原始標註
+│   └── cvat/dogs_min2/                # 篩選圖片與 CVAT 眼睛標註
+├── weights/                           # 模型權重與 MMPose 設定檔
+├── outputs/                           # 自動產生的結果
+│   ├── selection/                     # 資料集選取清單
+│   ├── inference/                     # 單張推論、mask、距離圖與 JSON
+│   ├── animal_segmentation/           # 動物分割評估
+│   ├── eye_localization/              # 眼睛定位評估
+│   ├── eye_segmentation/              # 眼睛分割評估
+│   └── eye_distance/                  # 眼睛距離評估
+├── pyproject.toml                     # Python 版本、套件依賴與 uv 設定
+├── uv.lock                            # 套件版本鎖定
+├── .python-version                    # 專案 Python 版本
+└── .gitignore                         # Git 忽略規則
+```
 
-固定第一階段的 YOLO 與 HRNet AP-10K，使用 YOLO 預測 bbox 取得眼睛 keypoint。兩種方法共用相同 keypoint，與 CVAT 眼睛 polygon 比較。
+`dataset/` 負責準備資料，`model/` 提供各階段模型，`run/` 串接推論或評估，`measurement.py` 提供共用量測工具。`data/`、`weights/` 與 `outputs/` 為本機資料與產出，已由 `.gitignore` 排除。
 
-### 眼睛定位模型比較（規劃中）
+## 4. 環境建置
 
-先比較定位模型，再固定一個模型產生眼睛 mask 的提示點。以下欄位暫定，模型權重與結果於實驗後補上；目前 localization 已整合 HRNet 與 RTMPose-m AP-10K（`architecture="rtmpose-m"`），ViTPose 待實作；完整比較數字待填。
-
-| Model | Representation | Mean Keypoint Error（px）↓ | PCK@0.05 ↑ | Keypoint Coverage ↑ | Latency（ms／圖）↓ |
-|---|---|---|---|---|---|
-| HRNet | Heatmap | 待填 | 待填 | 待填 | 待填 |
-| ViTPose | Heatmap | 待填 | 待填 | 待填 | 待填 |
-| RTMPose | SimCC | 待填 | 待填 | 待填 | 待填 |
-
-- 使用具動物眼睛關鍵點定義的權重，統一左右眼順序、YOLO bbox、有效人工標註與評估樣本。
-- Mean Keypoint Error：成功輸出之有效預測點與人工 point 的平均歐氏距離；須搭配 Coverage 解讀。
-- PCK@0.05：誤差不超過參考尺度 5% 的眼睛比例。正規化尺度待決定，實驗前固定；缺失預測視為不正確，分母為所有可評估眼睛。
-- Keypoint Coverage：有有效預測座標的眼睛數／所有可評估眼睛數，包含上游漏偵測造成的缺失；confidence 門檻待固定。此欄與下方 Mask Coverage 分開計算。
-- Latency：相同裝置、batch size 與暖機條件下的每圖定位推論時間；輸入尺寸及是否包含前後處理待固定，不含模型載入。
-
-### 人工標註方式
-
-使用 CVAT 在原圖尺寸標註，左右眼以狗自身方向為準。同張圖片內以 `dog_id` 區分不同狗，並將同一隻狗的 point 與 polygon 配對。
-
-| 標籤 | 類型 | 用途 |
-|---|---|---|
-| `L_Eye`、`R_Eye` | 單點 | 人工眼睛位置，作為 keypoint 距離的參考 |
-| `L_Eye_Mask`、`R_Eye_Mask` | Polygon | 人工眼睛區域，作為 mask IoU 的參考 |
-
-僅納入 `visibility=visible` 且 `measurable=yes` 的 point；`uncertain` 或 `measurable=no` 的推測位置不納入評估。眼睛 mask 必須對應同一隻狗、同側的有效 point。CVAT 的 `dog_id` 為圖片內編號，透過 COCO 狗的 segmentation 對應原始 annotation ID。
-
-### 評估方式：IoU 與 Coverage
-
-分割品質僅使用 IoU：它直接表示預測區域與人工標註的重疊程度，便於解釋 geometric baseline 與 SAM 增強的差異，不另列 Dice。
-
-**未成功產生有效 mask 的眼睛也必須納入評估，不能只計算成功樣本。** 所有符合人工標註條件且具有有效參考 polygon 的眼睛都列入分母；即使上游 YOLO 漏偵測，也不能從分母移除。
-
-- `Coverage = 成功產生有效 mask 的眼睛數 / 所有可評估眼睛數`。
-- 漏偵測、無效提示或空 mask：該眼睛 IoU 設為 0，並計入缺失／失敗數。
-- `Mean IoU = 所有可評估眼睛的 IoU 總和 / 所有可評估眼睛數`，包含失敗樣本的 0 分。
-- 有效輸出須為對應眼睛的原圖尺寸、非空二值 mask，並通過事先固定的輸出檢查；這不代表輪廓正確，品質仍由 IoU 衡量。額外的合理性條件若有使用，須在實驗前固定並註明，不能看結果後挑樣本。
-
-例如 20 個可評估眼睛中，12 個有有效 mask、其平均 IoU 為 0.75，另外 8 個失敗，則 Coverage 為 60%，整體 Mean IoU 為 `12 × 0.75 / 20 = 0.45`。
-
-| 方法 | 作法 | Mean IoU（含失敗）↑ | Coverage ↑ | 可評估眼睛數 | 有效 Mask 數 | 缺失／失敗數 |
-|---|---|---|---|---|---|---|
-| Geometric baseline | 由 keypoint 與估計半徑產生橢圓 mask | 待填 | 待填 | 待填 | 待填 | 待填 |
-| Geometric + SAM | Point + 幾何 box 提示 SAM，再做空間過濾 | 待填 | 待填 | 待填 | 待填 | 待填 |
-
-> 本節為完整流程的評估規範；目前使用 COCO bbox 的眼睛評估結果，尚不能代表包含 YOLO 漏偵測的 Coverage。後續程式與實驗須依上述規則更新。
-
-| 固定設定 | 數值 |
-|---|---|
-| YOLO 權重 | 待填 |
-| HRNet 權重 | 待填 |
-| SAM 權重 | 待填 |
-| 幾何半徑比例與上下限 | 待填 |
-| 有效眼睛標註規則 | 待填 |
-
-觀察與失敗案例：待填。
-
-## 3. Keypoint 距離量測
-
-沿用前兩階段的預測 keypoint，與 CVAT 人工 point 計算的距離比較。距離不使用 mask 中心，因此兩種眼睛 mask 方法共用一份距離結果。不同狗的右眼只在同張圖片內建立不重複配對。
-
-| 量測項目 | 有效參考筆數 | 成功量測筆數 | 未完成筆數 | MAE（px）↓ | MSE（px²）↓ |
-|---|---|---|---|---|---|
-| 同一隻狗的左右眼距離 | 待填 | 待填 | 待填 | 待填 | 待填 |
-| 不同狗的右眼距離 | 待填 | 待填 | 待填 | 待填 | 待填 |
-
-| 指標 | 公式 |
-|---|---|
-| Mask IoU | `交集面積 / 聯集面積` |
-| 歐氏距離 | `d = sqrt((x₁ − x₂)² + (y₁ − y₂)²)` |
-| MAE | `mean(abs(d_pred − d_GT))` |
-| MSE | `mean((d_pred − d_GT)²)` |
-
-距離使用原圖座標，單位為像素，不代表實際物理距離。MAE 為主要結果，MSE 補充呈現較大誤差；未完成量測需另外記錄，不能視為零誤差。
-
-結論與限制：待填。
+- [環境安裝](docs/environment_setup.md)
+- [資料集準備](docs/dataset_setup.md)
+- [模型設定與說明](docs/model.md)

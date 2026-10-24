@@ -49,7 +49,7 @@ uv run python -m run.animal_segmentation_evaluation
 
 | 輸出 | 位置 |
 |---|---|
-| COCO 格式 mask RLE 與 confidence | `outputs/animal_segmentation/{model}/coco_eval/coco_predictions.json`|
+| COCO 格式 mask RLE 與 confidence | `outputs/animal_segmentation/{model}/coco_eval/coco_predictions.json` |
 | 評估摘要（AP／AR） | `outputs/animal_segmentation/{model}/coco_eval/summary.json` |
 | 二值 mask | `outputs/animal_segmentation/{model}/coco_eval/masks/` |
 | 分割疊圖與 bbox | `outputs/animal_segmentation/{model}/coco_eval/overlays/` |
