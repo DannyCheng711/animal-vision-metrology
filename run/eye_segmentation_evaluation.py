@@ -158,7 +158,7 @@ if __name__ == "__main__":
     # Step 1: Load reference eyes and group dogs by image
     # ====================================================
     dogs_by_image = defaultdict(list)
-    for dog in load_eye_annotations(project_root / "data/cvat/dogs_min2/coco_dogs_eyes.zip", dataset):
+    for dog in load_eye_annotations(project_root / "annotations/coco_dogs_eyes.zip", dataset):
         dogs_by_image[dog["image_id"]].append(dog)
 
     # ====================================================

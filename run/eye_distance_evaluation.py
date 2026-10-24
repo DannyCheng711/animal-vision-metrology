@@ -113,7 +113,7 @@ if __name__ == "__main__":
     # ====================================================
     dataset = CocoDataset(project_root / "data/coco/annotations/instances_val2017.json",
                           project_root / "data/coco/val2017")
-    annotated_dogs = load_eye_annotations(project_root / "data/cvat/dogs_min2/coco_dogs_eyes.zip", dataset)
+    annotated_dogs = load_eye_annotations(project_root / "annotations/coco_dogs_eyes.zip", dataset)
     if not annotated_dogs:
         raise ValueError("No valid reference eyes to evaluate")
     dogs_by_image = defaultdict(list)

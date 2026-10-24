@@ -156,7 +156,7 @@ if __name__ == "__main__":
     # ====================================================
     # Step 1: Load reference eyes and group dogs by image
     # ====================================================
-    annotated_dogs = load_eye_annotations(project_root / "data/cvat/dogs_min2/coco_dogs_eyes.zip", dataset)
+    annotated_dogs = load_eye_annotations(project_root / "annotations/coco_dogs_eyes.zip", dataset)
     if not annotated_dogs:
         raise ValueError("No valid reference eyes to evaluate")
     dogs_by_image = defaultdict(list)

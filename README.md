@@ -87,21 +87,22 @@ computer-vision/
 │   ├── eye_localization.py            # HRNet／RTMPose 眼睛 keypoint 定位
 │   └── eye_segmentation.py            # Geometric／SAM 眼睛分割
 ├── measurement.py                     # Euclidean Distance 與 polygon mask 工具
+├── scripts/setup.sh                   # 建立虛擬環境與執行環境檢查
 ├── run/                               # 推論與各任務評估入口
+│   ├── check_environment.py           # 套件匯入與編譯運算子檢查
 │   ├── inference.py                   # 單張圖片推論、視覺化與距離輸出
 │   ├── animal_segmentation_evaluation.py
 │   ├── eye_localization_evaluation.py
 │   ├── eye_segmentation_evaluation.py
 │   └── eye_distance_evaluation.py
 ├── docs/                              # 環境、資料集、模型與操作說明
-│   ├── environment_setup.md
-│   ├── dataset_setup.md
-│   ├── model.md
+│   ├── setup.md                      # 安裝、資料準備與執行流程
 │   ├── inference.md
 │   └── evaluation/                    # 四項任務的評估方法與結果
-├── data/                              # 本機資料集與人工標註
-│   ├── coco/                          # COCO val2017 圖片與原始標註
-│   └── cvat/dogs_min2/                # 篩選圖片與 CVAT 眼睛標註
+├── annotations/                       # 隨 repo 提供的 CVAT 人工標註
+│   └── coco_dogs_eyes.zip             # 僅含 annotations.xml，不含圖片
+├── data/                              # 本機資料集
+│   └── coco/                          # COCO val2017 圖片與原始標註
 ├── weights/                           # 模型權重與 MMPose 設定檔
 ├── outputs/                           # 自動產生的結果
 │   ├── selection/                     # 資料集選取清單
@@ -118,8 +119,8 @@ computer-vision/
 
 `dataset/` 負責準備資料，`model/` 提供各階段模型，`run/` 串接推論或評估，`measurement.py` 提供共用量測工具。`data/`、`weights/` 與 `outputs/` 為本機資料與產出，已由 `.gitignore` 排除。
 
-## 4. 環境建置
+## 4. 環境建置與執行
 
-- [環境安裝](docs/environment_setup.md)
-- [資料集準備](docs/dataset_setup.md)
-- [模型設定與說明](docs/model.md)
+以 Linux x86_64、Python 3.11 為目標，使用 uv 建立 `.venv`。完整流程包含系統依賴、環境檢查、範例推論、COCO 資料下載與 CVAT 評估。
+
+請參考 [安裝與執行說明](docs/setup.md)。
