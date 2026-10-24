@@ -2,7 +2,6 @@
 from pathlib import Path
 from urllib.request import urlopen
 
-import cv2
 import numpy as np
 from PIL import Image
 from segment_anything import SamPredictor, sam_model_registry
@@ -41,7 +40,7 @@ class EyeSegmenter:
         self.predictor = SamPredictor(model) if model is not None else None
 
     def predict(self, image_path, eye_predictions, use_sam=False, radius_ratio=0.15):
-        """Estimate geometric masks, optionally adding point-and-box SAM."""
+        """Return a geometric ellipse or the highest predicted-IoU SAM mask."""
         # Step 1: Read original image coordinates; only SAM needs an embedding.
         if not np.isfinite(radius_ratio) or radius_ratio <= 0:
             raise ValueError("radius_ratio must be positive and finite")
@@ -82,7 +81,7 @@ class EyeSegmenter:
                     dog[side] = {"mask": mask, "quality": None, "status": "invalid_eye_scale"}
                     continue
 
-                # Step 3: Use the same local extent for both methods.
+                # Step 3: Use the ellipse extent as the SAM box prompt.
                 x, y = map(float, point)
                 x0 = max(0, int(np.floor(x - radius_x)))
                 y0 = max(0, int(np.floor(y - radius_y)))
@@ -91,14 +90,8 @@ class EyeSegmenter:
                 box = np.asarray([x0, y0, x1, y1], dtype=np.float32)
                 quality = None
 
-                # Baseline: an axis-aligned ellipse centered on the keypoint.
-                yy, xx = np.ogrid[y0:y1 + 1, x0:x1 + 1]
-                mask[y0:y1 + 1, x0:x1 + 1] = (
-                    ((xx - x) / radius_x) ** 2 + ((yy - y) / radius_y) ** 2 <= 1
-                )
-
                 if use_sam:
-                    # Step 4: Prompt SAM and select by predicted quality only.
+                    # Step 4: Return the full SAM mask with highest predicted IoU.
                     masks, scores, _ = self.predictor.predict(
                         point_coords=point.reshape(1, 2),
                         point_labels=np.asarray([1], dtype=np.int32),
@@ -107,14 +100,13 @@ class EyeSegmenter:
                     )
                     best = int(np.argmax(scores))
                     quality = float(scores[best])
-                    mask[y0:y1 + 1, x0:x1 + 1] = masks[best, y0:y1 + 1, x0:x1 + 1]
-
-                    # Step 5: Keep only the component containing the prompt pixel.
-                    _, components = cv2.connectedComponents(mask.astype(np.uint8))
-                    px = min(width - 1, int(np.floor(x + 0.5)))
-                    py = min(height - 1, int(np.floor(y + 0.5)))
-                    component_id = components[py, px]
-                    mask = components == component_id if component_id else np.zeros_like(mask)
+                    mask = masks[best]
+                else:
+                    # Baseline: an axis-aligned ellipse centered on the keypoint.
+                    yy, xx = np.ogrid[y0:y1 + 1, x0:x1 + 1]
+                    mask[y0:y1 + 1, x0:x1 + 1] = (
+                        ((xx - x) / radius_x) ** 2 + ((yy - y) / radius_y) ** 2 <= 1
+                    )
 
                 dog[side] = {
                     "mask": mask, "quality": quality,
