@@ -115,7 +115,7 @@ if __name__ == "__main__":
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
     # Load each model once.
-    animal_model = load_animal_model(download_animal_checkpoint("s"))
+    animal_model = load_animal_model(download_animal_checkpoint("yolo26x"))
     animal_segmenter = AnimalSegmenter(animal_model, device=device)
 
     architecture = "w32"

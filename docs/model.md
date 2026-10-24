@@ -31,11 +31,11 @@ Run from the project root:
 .venv/bin/python -m model.animal_segmentation
 ```
 
-`model/animal_segmentation.py` follows the localization wrapper style: `download_checkpoint`, `load_model`, and `AnimalSegmenter(model, device).predict(image_path)`. It uses the COCO-pretrained `yolo11s-seg.pt` checkpoint and defaults to dog predictions at confidence 0.25. Category names are resolved from model metadata; YOLO class IDs are not COCO annotation IDs.
+`model/animal_segmentation.py` follows the localization wrapper style: `download_checkpoint`, `load_model`, and `AnimalSegmenter(model, device).predict(image_path)`. It uses the COCO-pretrained `yolo11x-seg.pt` checkpoint and defaults to dog predictions at confidence 0.25. Category names are resolved from model metadata; YOLO class IDs are not COCO annotation IDs.
 
 Each prediction returns a top-left `xywh` bbox compatible with `EyeLocalizer`, an original-resolution boolean mask, YOLO class ID, category name, and confidence. No detections returns an empty list. `animal_names` can select other model categories. YOLO receives only the image; reference dog counts are used solely for reporting.
 
-The demo processes all images selected with `min_dogs=2` and writes `predictions.json`, binary `masks/`, and colored `overlays/` to `outputs/animal_segmentation/yolo11s/`. Predicted instance IDs are image-local and have not been matched to COCO annotation IDs. Counts are a visual/debug check, not IoU, Dice, or mAP evaluation.
+The demo processes all images selected with `min_dogs=2` and writes `predictions.json`, binary `masks/`, and colored `overlays/` to `outputs/animal_segmentation/yolo11x/`. Predicted instance IDs are image-local and have not been matched to COCO annotation IDs. Counts are a visual/debug check, not IoU, Dice, or mAP evaluation.
 
 This module is currently independent of the eye evaluation entry point. Eye evaluation still uses COCO reference boxes; full-pipeline prediction matching and animal-mask evaluation are separate next steps.
 
@@ -77,3 +77,15 @@ In `run/evaluation.py`, set `use_sam=True` or `False`. Disabling SAM skips its m
 Run `.venv/bin/python -m run.inference` from the project root. Change `image_path` and `use_sam` in the entry point. The simple pipeline is YOLO predicted dog masks/boxes → HRNet keypoints → geometric eye masks with optional SAM. No annotation files or reference boxes are used. Disabling SAM skips its loading and download.
 
 Outputs are saved to `outputs/inference/<image_stem>/<geometric_or_geometric_sam>/`: `overlay.png`, `predictions.json`, and binary PNGs in `masks/`. Yellow outlines show dogs; green shows left eyes; cyan shows right eyes. Eye rectangles enclose the final predicted mask, not the SAM prompt box. JSON boxes use top-left xywh; empty eye masks have null boxes and an explicit status. Instance IDs are local predictions, not CVAT IDs. If no dogs are detected, the original image and empty predictions are saved. Different inputs with the same stem share an output directory, so choose a different output_dir when needed.
+
+
+## AP-10K localization model selection
+
+`model/eye_localization.py` supports `architecture="w32"`, `"w48"`, and `"rtmpose-m"`. The new RTMPose-m model uses the official MMPose 1.3.2 AP-10K config and checkpoint with SimCC representation. Set the architecture before calling the existing `download_configs`, `download_checkpoint`, and `model_paths` helpers; `load_model` and `EyeLocalizer.predict(image_path, bboxes)` are unchanged. In inference/evaluation, change their `architecture` setting to select the model. Existing defaults remain HRNet-w32.
+
+Eye indices are read from the model's AP-10K metadata (`L_Eye`, `R_Eye`), not assumed from human COCO keypoints. Input boxes remain original-image xywh, output points remain original-image xy coordinates. Confidence scores from different models are not assumed calibrated to the same scale. ViTPose has not been integrated.
+
+Official RTMPose AP-10K model metadata: https://github.com/open-mmlab/mmpose/blob/v1.3.2/configs/animal_2d_keypoint/rtmpose/ap10k/rtmpose_ap10k.yml
+
+
+Current animal checkpoint options are `yolov8x`, `yolo11x`, and `yolo26x`. The animal download helper and single-image inference default to YOLO26x. The animal module entry point compares all three x models with the same 29 images, input size 640, and confidence 0.25. Previous small-model artifacts are retained separately.

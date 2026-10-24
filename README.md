@@ -1,24 +1,44 @@
-# 動物分割、眼睛分割與距離量測
+# 動物影像分割、眼睛影像分割與距離量測
 
 使用 COCO val2017 中至少有兩隻非 crowd 狗的 29 張圖片，依序比較動物分割、眼睛 mask 與 keypoint 距離。眼睛參考標註來自 CVAT；僅納入符合有效標註條件的眼睛。
 
-> 本資料子集用於模型選擇與探索性比較，並非獨立測試集。表格中的「待填」於實驗後更新。
 
-## 1. YOLO 動物實例分割
+## 1. 動物影像分割
 
-比較 COCO 預訓練 YOLO-seg，選出後續流程使用的模型。各模型使用相同圖片、輸入尺寸與 confidence 門檻；預測與 COCO 狗實例採一對一配對，另記錄漏偵測與多餘預測。
+比較 COCO 預訓練的 YOLOv8x-seg、YOLO11x-seg 與 YOLO26x-seg，選擇後續流程的上游模型。目前不設部署資源限制，以分割品質為優先。
 
-| 模型／權重 | 輸入尺寸 | Confidence | 配對 IoU 門檻 | 裝置 |
+> 選用原因：YOLO-seg 可同時輸出動物 bbox 與 instance mask，並提供 COCO 預訓練權重，方便銜接眼睛定位。YOLO12 尚無官方預訓練 segmentation 權重，因此不納入比較。
+
+### 評估設定
+
+三個模型使用相同的 29 張圖片，以原始 COCO instance mask 為參考，透過 `pycocotools.COCOeval` 進行 segmentation 評估，僅評估 dog 類別。
+
+| 適用模型 | 輸入尺寸設定 | 評估 Confidence | IoU 門檻 | 裝置 |
 |---|---|---|---|---|
-| 待填 | 待填 | 待填 | 待填 | 待填 |
+| YOLO-seg x | imgsz=640（等比例縮放與 padding） | 0.001 | 0.50–0.95（間隔 0.05） | NVIDIA H100 80GB HBM3 |
 
-| 模型／權重 | Mask IoU ↑ | Precision ↑ | Recall ↑ | 漏偵測數 ↓ | 多餘預測數 ↓ | 推論時間（ms／圖）↓ |
-|---|---|---|---|---|---|---|
-| 待填 A | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 |
-| 待填 B | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 |
-| 待填 C | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 |
+### 評估結果
 
-選用模型與原因：待填。
+| 模型 | Mask AP@[.50:.95] ↑ | AP50 ↑ | AP75 ↑ |
+|---|---:|---:|---:|
+| YOLOv8x-seg | 0.551 | 0.725 | 0.670 |
+| YOLO11x-seg | 0.556 | 0.718 | 0.671 |
+| **YOLO26x-seg** | **0.595** | **0.791** | **0.706** |
+
+- Mask AP@[.50:.95]：在 0.50～0.95、間隔 0.05 的 IoU 門檻下，計算 AP 後取平均。
+- AP50／AP75：分別為 IoU 門檻 0.50／0.75 下的 AP，依 confidence 排序累積 Precision–Recall 曲線。
+
+YOLO26x-seg 在本次比較的三項 AP 指標均取得最高分，因此選為後續眼睛定位、眼睛影像分割與距離量測的上游模型。
+
+### 執行方式
+
+從專案根目錄執行：
+
+```bash
+uv run python -m model.animal_segmentation
+```
+
+程式依序評估三個模型。各模型輸出位於 `outputs/animal_segmentation/{model}/coco_eval/`，包含 COCO 格式預測 `coco_predictions.json`、評估摘要 `summary.json`、二值 mask 與疊圖；比較總表為 `outputs/animal_segmentation/comparison_coco.csv`。
 
 ## 2. 眼睛 Mask：Geometric 與 SAM 增強比較
 
@@ -26,7 +46,7 @@
 
 ### 眼睛定位模型比較（規劃中）
 
-先比較定位模型，再固定一個模型產生眼睛 mask 的提示點。以下欄位暫定，模型權重與結果於實驗後補上；目前 pipeline 已整合 HRNet，ViTPose 與 RTMPose 待實作。
+先比較定位模型，再固定一個模型產生眼睛 mask 的提示點。以下欄位暫定，模型權重與結果於實驗後補上；目前 localization 已整合 HRNet 與 RTMPose-m AP-10K（`architecture="rtmpose-m"`），ViTPose 待實作；完整比較數字待填。
 
 | Model | Representation | Mean Keypoint Error（px）↓ | PCK@0.05 ↑ | Keypoint Coverage ↑ | Latency（ms／圖）↓ |
 |---|---|---|---|---|---|
