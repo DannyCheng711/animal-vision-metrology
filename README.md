@@ -96,7 +96,7 @@ computer-vision/
 │   ├── eye_segmentation_evaluation.py
 │   └── eye_distance_evaluation.py
 ├── docs/                              # 環境、資料集、模型與操作說明
-│   ├── setup.md                      # 安裝、資料準備與執行流程
+│   ├── setup.md                       # 安裝、資料準備與執行流程
 │   ├── inference.md
 │   └── evaluation/                    # 四項任務的評估方法與結果
 ├── annotations/                       # 隨 repo 提供的 CVAT 人工標註
@@ -116,8 +116,6 @@ computer-vision/
 ├── .python-version                    # 專案 Python 版本
 └── .gitignore                         # Git 忽略規則
 ```
-
-`dataset/` 負責準備資料，`model/` 提供各階段模型，`run/` 串接推論或評估，`measurement.py` 提供共用量測工具。`data/`、`weights/` 與 `outputs/` 為本機資料與產出，已由 `.gitignore` 排除。
 
 ## 4. 環境建置與執行
 
