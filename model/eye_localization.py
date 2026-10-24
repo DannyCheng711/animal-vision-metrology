@@ -15,8 +15,6 @@ CHECKPOINTS = {
 }
 
 
-
-
 def model_paths(architecture):
     if architecture not in CHECKPOINTS:
         raise ValueError(f"Unsupported architecture: {architecture}")
@@ -24,7 +22,7 @@ def model_paths(architecture):
     if architecture == "rtmpose-m":
         config_dir = "animal_2d_keypoint/rtmpose/ap10k"
         config_name = "rtmpose-m_8xb64-210e_ap10k-256x256.py"
-    
+
     elif architecture == "hrnet-w48":
         config_dir = "animal_2d_keypoint/topdown_heatmap/ap10k"
         config_name = "td-hm_hrnet-w48_8xb64-210e_ap10k-256x256.py"
@@ -36,20 +34,17 @@ def model_paths(architecture):
 
 
 def download_file(url, destination):
-    # If destination file already exists, skip downloading
     if destination.is_file() and destination.stat().st_size > 0:
         return
 
     destination.parent.mkdir(parents=True, exist_ok=True)
 
     with urlopen(url, timeout=120) as response:
-        # Binary write mode
+        # Keep partial downloads separate from the final destination.
         temporary = destination.with_suffix(destination.suffix + ".part")
         with temporary.open("wb") as file:
-            # Read 1 MB per iteration
             while chunk := response.read(1024 * 1024):
                 file.write(chunk)
-        # Publish only after the complete response has been written.
         temporary.replace(destination)
 
 
@@ -74,7 +69,7 @@ def download_checkpoint(architecture):
         source = "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1"
     elif architecture == "hrnet-w48":
         source = "https://download.openmmlab.com/mmpose/animal/hrnet"
-    
+
     url = f"{source}/{checkpoint_path.name}"
     download_file(url, checkpoint_path)
 
@@ -92,11 +87,12 @@ def load_model(config_path, checkpoint_path, device="cpu"):
 
 
 class EyeLocalizer:
-    """Predict animal eye keypoints using a pretrained MMPose model."""
+    """Return original-image eye coordinates and confidence for each animal box."""
 
     def __init__(self, model):
         self.model = model
 
+        # Resolve animal eye indices from the model metadata.
         keypoint_names = model.dataset_meta["keypoint_name2id"]
 
         self.eye_indices = {
@@ -105,9 +101,15 @@ class EyeLocalizer:
         }
 
     def predict(self, image_path, bboxes):
-        """Return left/right eye coordinates and confidence for each bbox."""
+        # ====================================================
+        # Step 1: Check for input animal boxes
+        # ====================================================
         if len(bboxes) == 0:
             return []
+
+        # ====================================================
+        # Step 2: Predict poses using original-image xywh boxes
+        # ====================================================
         results = inference_topdown(
             model=self.model,
             img=str(image_path),
@@ -115,14 +117,19 @@ class EyeLocalizer:
             bbox_format="xywh",
         )
 
+        # ====================================================
+        # Step 3: Extract eye coordinates and confidence from each pose
+        # ====================================================
         predictions = []
 
         for result in results:
             pose = result.pred_instances
 
+            # Coordinates are in original-image pixels; scores do not verify visibility.
             keypoints = pose.keypoints[0]
             scores = pose.keypoint_scores[0]
 
+            # Left/right refer to the animal's own sides.
             left_idx = self.eye_indices["left_eye"]
             right_idx = self.eye_indices["right_eye"]
 
