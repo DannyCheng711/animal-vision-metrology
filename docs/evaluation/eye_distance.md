@@ -37,10 +37,10 @@ $$
 \mathrm{MAE} = \frac{1}{N}\sum_{i=1}^{N}\left|d_i^{pred} - d_i^{gt}\right|
 $$
 
-- Mean Relative Error（%）：
+- Mean Relative Error (MRE)（%）：
 
 $$
-\mathrm{Mean\ Relative\ Error}\ (\%) = \frac{1}{N}\sum_{i=1}^{N}\frac{\left|d_i^{pred} - d_i^{gt}\right|}{d_i^{gt}} \times 100
+\mathrm{MRE} = \frac{1}{N}\sum_{i=1}^{N}\frac{\left|d_i^{pred} - d_i^{gt}\right|}{d_i^{gt}} \times 100
 $$
 
 其中 $N$ 為各量測項目的成功量測筆數。
